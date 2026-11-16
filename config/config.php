@@ -7,8 +7,8 @@
 // ---- Database (aplikasi) ----
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'ljucoid_pbj');
-define('DB_USER', 'ljucoid_pbj');
-define('DB_PASS', 'icikiwir2026');
+define('DB_USER', '');
+define('DB_PASS', '');
 
 // ---- Database SSO/users (database berbeda, satu mesin) ----
 define('SSO_DB_HOST', 'localhost');
