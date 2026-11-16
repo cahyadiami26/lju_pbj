@@ -3,6 +3,11 @@ require_once __DIR__ . '/../includes/bootstrap.php';
 $pageTitle = 'Data Lokasi';
 $active = 'lokasi';
 
+/* Kolom can_book berasal dari migrasi database/migrate_room_bookings.sql.
+   Halaman tetap berfungsi walau migrasi belum dijalankan. */
+$hasCanBook = false;
+try { $hasCanBook = (bool)q("SHOW COLUMNS FROM locations LIKE 'can_book'")->fetch(); } catch (Throwable $e) {}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_role(['admin', 'staff_pengadaan']);
     $act = $_POST['action'] ?? '';
@@ -10,14 +15,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)($_POST['id'] ?? 0);
         $parent = ($_POST['parent_id'] !== '') ? (int)$_POST['parent_id'] : null;
         $type = in_array($_POST['type'], ['gedung', 'lantai', 'ruang']) ? $_POST['type'] : 'ruang';
+        /* Checkbox "Bisa Dipinjam": hanya relevan untuk jenis Ruang; ruangan
+           yang ditandai akan muncul sebagai pilihan di modul Peminjaman Ruang. */
+        $canBook = ($hasCanBook && $type === 'ruang' && !empty($_POST['can_book'])) ? 1 : 0;
         if ($id) {
-            q("UPDATE locations SET parent_id=?, type=?, name=?, code=?, description=? WHERE id=?",
-              [$parent, $type, trim($_POST['name']), trim($_POST['code'] ?? ''), trim($_POST['description'] ?? ''), $id]);
+            if ($hasCanBook) {
+                q("UPDATE locations SET parent_id=?, type=?, name=?, code=?, description=?, can_book=? WHERE id=?",
+                  [$parent, $type, trim($_POST['name']), trim($_POST['code'] ?? ''), trim($_POST['description'] ?? ''), $canBook, $id]);
+            } else {
+                q("UPDATE locations SET parent_id=?, type=?, name=?, code=?, description=? WHERE id=?",
+                  [$parent, $type, trim($_POST['name']), trim($_POST['code'] ?? ''), trim($_POST['description'] ?? ''), $id]);
+            }
         } else {
-            q("INSERT INTO locations (parent_id,type,name,code,description) VALUES (?,?,?,?,?)",
-              [$parent, $type, trim($_POST['name']), trim($_POST['code'] ?? ''), trim($_POST['description'] ?? '')]);
+            if ($hasCanBook) {
+                q("INSERT INTO locations (parent_id,type,name,code,description,can_book) VALUES (?,?,?,?,?,?)",
+                  [$parent, $type, trim($_POST['name']), trim($_POST['code'] ?? ''), trim($_POST['description'] ?? ''), $canBook]);
+            } else {
+                q("INSERT INTO locations (parent_id,type,name,code,description) VALUES (?,?,?,?,?)",
+                  [$parent, $type, trim($_POST['name']), trim($_POST['code'] ?? ''), trim($_POST['description'] ?? '')]);
+            }
         }
-        flash_set('success', 'Lokasi disimpan.');
+        flash_set('success', 'Lokasi disimpan.' . ($hasCanBook && $canBook ? ' Ruangan dapat dipinjam pada modul Peminjaman Ruang.' : ''));
     } elseif ($act === 'delete') {
         $id = (int)$_POST['id'];
         try {
@@ -37,15 +55,21 @@ foreach ($locs as $l) $byParent[$l['parent_id'] ?? 0][] = $l;
 
 function render_tree(array $byParent, ?int $parent, array $locsById): void
 {
+    global $hasCanBook;
     $children = $byParent[$parent ?? 0] ?? [];
     if (!$children) return;
     echo '<ul>';
     foreach ($children as $c) {
         $icon = ['gedung' => '🏢', 'lantai' => '🪜', 'ruang' => '🚪'][$c['type']] ?? '📍';
         $cnt = count_rows("SELECT COUNT(*) FROM assets WHERE location_id=" . (int)$c['id']);
+        $canBookRow = $hasCanBook && ($c['type'] ?? '') === 'ruang' && !empty($c['can_book']);
         echo '<li><span class="node">' . $icon . ' <b>' . e($c['name']) . '</b>';
         if ($c['code']) echo '<small style="color:var(--muted)">(' . e($c['code']) . ')</small>';
         if ($cnt) echo '<span class="badge badge-info">' . $cnt . ' aset</span>';
+        if ($canBookRow) echo '<span class="badge badge-success">Bisa Dipinjam</span>';
+        if ($canBookRow && can('ruang_booking')) {
+            echo ' <a href="ruang_booking.php?room=' . (int)$c['id'] . '" class="btn btn-sm btn-teal" title="Ajukan peminjaman ruang ini">📅</a> ';
+        }
         echo '<a href="?edit=' . (int)$c['id'] . '" class="btn btn-sm btn-outline">✏️</a> ';
         echo '<form method="post" style="display:inline" onsubmit="return confirm(\'Hapus lokasi ini?\')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="' . (int)$c['id'] . '"><button class="btn btn-sm btn-danger">🗑</button></form>';
         if (!$c['is_active']) echo ' <span class="badge badge-secondary">NONAKTIF</span>';
@@ -100,9 +124,29 @@ require __DIR__ . '/../includes/header.php';
         <div class="form-group"><label>Kode</label><input type="text" name="code" value="<?= e($edit['code'] ?? '') ?>" placeholder="cth: IT (untuk kode aset)"></div>
       </div>
       <div class="form-group"><label>Keterangan</label><textarea name="description" rows="2"><?= e($edit['description'] ?? '') ?></textarea></div>
+      <div id="rowCanBook" class="check-line" style="margin:4px 0 12px">
+        <input type="checkbox" id="fCanBook" name="can_book" value="1" <?= $hasCanBook && !empty($edit['can_book']) ? 'checked' : '' ?>>
+        <label for="fCanBook" style="margin:0;font-weight:600">Bisa Dipinjam / Booking</label>
+        <small class="muted">Hanya berlaku untuk jenis <b>Ruang</b> — ruangan yang ditandai akan muncul di modul <b>Peminjaman Ruang</b>.</small>
+      </div>
       <button class="btn btn-primary">💾 Simpan</button>
       <?php if ($edit): ?><a class="btn btn-outline" href="lokasi.php">Batal</a><?php endif; ?>
     </form>
   </div>
 </div>
+<script>
+(function () {
+  var typeSel = document.querySelector('select[name=type]');
+  var row = document.getElementById('rowCanBook');
+  var cb = document.getElementById('fCanBook');
+  if (!typeSel || !row) return;
+  function sync() {
+    var isRoom = typeSel.value === 'ruang';
+    row.style.display = isRoom ? 'flex' : 'none';
+    if (!isRoom && cb) cb.checked = false;
+  }
+  typeSel.addEventListener('change', sync);
+  sync();
+})();
+</script>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

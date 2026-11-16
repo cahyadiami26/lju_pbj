@@ -55,6 +55,15 @@ $menuGroups = [
         ]
     ],
     [
+        'label' => 'Ruang',
+        'key' => 'ruang_group',
+        'icon' => '🚪',
+        'items' => [
+            ['ruang_booking', 'Peminjaman Ruang', '📅'],
+            ['ruang_booking_kalender', 'Kalender Pemakaian Ruang', '🗓️'],
+        ]
+    ],
+    [
         'label' => 'Laporan & Pengaturan',
         'key' => 'setting_group',
         'icon' => '⚙️',

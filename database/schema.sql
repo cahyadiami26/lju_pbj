@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS user_cache (
 ) ENGINE=InnoDB;
 
 -- Data Lokasi: Gedung -> Lantai -> Ruang
+-- can_book=1 menandai ruangan (type='ruang') dapat dipinjam/booking sehingga
+-- muncul sebagai pilihan ruang pada modul Peminjaman Ruang (ruang_booking.php).
 CREATE TABLE IF NOT EXISTS locations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   parent_id INT NULL,
@@ -40,8 +42,47 @@ CREATE TABLE IF NOT EXISTS locations (
   code VARCHAR(30) DEFAULT NULL,
   description TEXT,
   is_active TINYINT(1) DEFAULT 1,
+  can_book TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (parent_id) REFERENCES locations(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Peminjaman / Pemesanan Ruang (alur serupa peminjaman kendaraan):
+-- MENUNGGU -> (persetujuan staff/admin pengadaan) DISETUJUI -> DIGUNAKAN -> SELESAI
+-- atau DITOLAK / DIBATALKAN. Jadwal dapat diubah (reschedule) selama belum dimulai.
+CREATE TABLE IF NOT EXISTS room_bookings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_no VARCHAR(40) NOT NULL UNIQUE,           -- RU-YYYY-0001
+  location_id INT NOT NULL,                         -- ruangan (locations.type='ruang' + can_book=1)
+  user_id INT NOT NULL,                             -- pemohon
+  purpose TEXT NOT NULL,                            -- keperluan penggunaan ruang
+  participants INT NULL,                            -- jumlah orang (opsional)
+  note TEXT,                                        -- catatan pemohon
+  start_at DATETIME NOT NULL,
+  end_at DATETIME NOT NULL,
+  status ENUM('MENUNGGU','DISETUJUI','DIGUNAKAN','SELESAI','DIBATALKAN','DITOLAK') NOT NULL DEFAULT 'MENUNGGU',
+  approved_by INT NULL, approve_note TEXT, rejected_at DATETIME NULL,
+  cancelled_by INT NULL, cancelled_at DATETIME NULL, cancel_reason TEXT,
+  completed_at DATETIME NULL,
+  reschedule_count INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (location_id) REFERENCES locations(id)
+) ENGINE=InnoDB;
+
+-- Riwayat perubahan jadwal & pembatalan pemesanan ruang
+CREATE TABLE IF NOT EXISTS room_booking_changes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id INT NOT NULL,
+  change_type ENUM('RESCHEDULE','BATALKAN') NOT NULL DEFAULT 'RESCHEDULE',
+  old_start_at DATETIME NULL,
+  old_end_at DATETIME NULL,
+  new_start_at DATETIME NULL,
+  new_end_at DATETIME NULL,
+  note TEXT,
+  changed_by INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (booking_id) REFERENCES room_bookings(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Kebutuhan (Pengajuan Kebutuhan) - header
@@ -416,14 +457,14 @@ CREATE TABLE IF NOT EXISTS vehicle_usage_logs (
   FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Seed lokasi contoh
-INSERT INTO locations (id, parent_id, type, name, code) VALUES
- (1, NULL, 'gedung', 'Gedung A', 'GA'),
- (2, 1, 'lantai', 'Lantai 1', 'GA-L1'),
- (3, 1, 'lantai', 'Lantai 2', 'GA-L2'),
- (4, 2, 'ruang', 'Ruang Direktur', 'DIR'),
- (5, 2, 'ruang', 'Ruang Keuangan', 'KEU'),
- (6, 2, 'ruang', 'Ruang Umum', 'UMUM'),
- (7, 3, 'ruang', 'Ruang IT', 'IT'),
- (8, 3, 'ruang', 'Ruang Operasional', 'OPS')
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+-- Seed lokasi contoh (can_book=1 agar contoh ruangan langsung bisa dipesan)
+INSERT INTO locations (id, parent_id, type, name, code, can_book) VALUES
+ (1, NULL, 'gedung', 'Gedung A', 'GA', 0),
+ (2, 1, 'lantai', 'Lantai 1', 'GA-L1', 0),
+ (3, 1, 'lantai', 'Lantai 2', 'GA-L2', 0),
+ (4, 2, 'ruang', 'Ruang Direktur', 'DIR', 1),
+ (5, 2, 'ruang', 'Ruang Keuangan', 'KEU', 1),
+ (6, 2, 'ruang', 'Ruang Umum', 'UMUM', 1),
+ (7, 3, 'ruang', 'Ruang IT', 'IT', 1),
+ (8, 3, 'ruang', 'Ruang Operasional', 'OPS', 1)
+ON DUPLICATE KEY UPDATE name = VALUES(name), can_book = VALUES(can_book);

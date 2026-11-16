@@ -128,6 +128,8 @@ function can($module): bool
         'fasilitas'          => ['admin','staff_pengadaan','pimpinan','pegawai'],
         'kendaraan'          => ['admin','staff_pengadaan','kepala_bidang','kepala_divisi','pimpinan','pegawai'],
         'peminjaman'         => ['admin','staff_pengadaan','kepala_bidang','kepala_divisi','pimpinan','pegawai'],
+        'ruang_booking'      => ['admin','staff_pengadaan','kepala_bidang','kepala_divisi','pimpinan','pegawai'],
+        'ruang_booking_kalender' => ['admin','staff_pengadaan','kepala_bidang','kepala_divisi','pimpinan','pegawai'],
         'perawatan_kendaraan'=> ['admin','staff_pengadaan','pimpinan'],
         'laporan'            => ['admin','staff_pengadaan','pimpinan'],
         'role_mapping'       => ['admin'],

@@ -194,3 +194,37 @@ span.avatar-img{display:none}
   .es-list{max-height:180px}
   .es-btn{padding:8px 10px;font-size:13.5px}
 }
+
+/* ===== Kalender Pemakaian Ruang (ruang_booking_kalender.php) ===== */
+.cal-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.cal-title{font-size:16px;font-weight:700;color:var(--navy);margin-right:6px}
+.cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:12px}
+.dot-swatch{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-2px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-head{text-align:center;font-weight:700;padding:6px 0;color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+.cal-day{background:#fff;border:1px solid var(--line);border-radius:10px;min-height:96px;padding:6px;cursor:pointer;position:relative;transition:.15s;overflow:hidden}
+.cal-day:hover{border-color:var(--primary);box-shadow:var(--shadow)}
+.cal-day.out{background:#f8fafc;opacity:.4;cursor:default}
+.cal-day.today{border:2px solid var(--teal);box-shadow:0 0 0 3px rgba(13,148,136,.18)}
+.cal-day.has-event{background:#f0fdfa;border-color:#99f6e4}
+/* Highlight MERAH: ada fasilitas di ruangan terkait yang rusak/sedang diperbaiki */
+.cal-day.day-broken{background:#fef2f2;border-color:#fca5a5}
+.cal-day.day-broken.has-event{background:#fee2e2;border-color:#f87171}
+.cal-day.day-broken:hover{border-color:var(--danger)}
+.cal-num{font-weight:700;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.cal-day.today .cal-num{color:var(--teal)}
+.cal-ev{margin-top:3px;font-size:10.5px;padding:3px 5px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.cal-ev.wait{background:#e2e8f0;color:#334155}
+.cal-ev.ok{background:#dcfce7;color:#166534}
+.cal-ev.use{background:#dbeafe;color:#1e40af}
+.cal-ev.done{background:#f1f5f9;color:#64748b}
+.cal-ev.broken{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.cal-more{font-size:10px;color:var(--muted);margin-top:3px;font-weight:600}
+@media (max-width:640px){
+  .cal-day{min-height:64px;padding:4px}
+  .cal-ev{font-size:9.5px}
+  .cal-head{font-size:10.5px}
+}
+/* Ruangan terfilter memiliki fasilitas rusak -> seluruh tanggal ditandai merah */
+.cal.room-broken .cal-day:not(.out){border-color:#fca5a5}
+.cal.room-broken .cal-day:not(.out)::after{content:'⚠';position:absolute;top:5px;right:7px;color:var(--danger);font-weight:700;font-size:12px}

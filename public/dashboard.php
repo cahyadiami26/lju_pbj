@@ -16,6 +16,8 @@ $stats = [
     ['label' => 'Kendaraan Tersedia',        'icon' => '🚗', 'sql' => "SELECT COUNT(*) FROM vehicles WHERE status='TERSEDIA'"],
     ['label' => 'Kendaraan Digunakan',       'icon' => '🛣️', 'sql' => "SELECT COUNT(*) FROM vehicles WHERE status IN ('DIPINJAM','DIGUNAKAN')"],
     ['label' => 'Kendaraan Diperbaiki',      'icon' => '🔧', 'sql' => "SELECT COUNT(*) FROM vehicles WHERE status='SERVICE'"],
+    ['label' => 'Peminjaman Ruang Menunggu', 'icon' => '📅', 'sql' => "SELECT COUNT(*) FROM room_bookings WHERE status='MENUNGGU'"],
+    ['label' => 'Ruang Dipakai Hari Ini',    'icon' => '🚪', 'sql' => "SELECT COUNT(*) FROM room_bookings WHERE status IN ('DISETUJUI','DIGUNAKAN') AND start_at <= NOW() AND end_at >= NOW()"],
 ];
 
 // ---- Statistik kerusakan & kendaraan untuk chart sederhana ----

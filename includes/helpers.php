@@ -31,11 +31,23 @@ function flash(): string
     if (!empty($_SESSION['flash'])) {
         foreach ($_SESSION['flash'] as $type => $msg) {
             $cls = ['success' => 'alert-success', 'danger' => 'alert-danger', 'warning' => 'alert-warning', 'info' => 'alert-info'][$type] ?? 'alert-info';
-            $out .= '<div class="alert ' . $cls . '">' . e($msg) . '</div>';
+            $out .= '<div class="alert ' . $cls . '">' . nl2br(e($msg)) . '</div>';
         }
         unset($_SESSION['flash']);
     }
     return $out;
+}
+
+/** Normalisasi input datetime-local (YYYY-MM-DDTHH:MM) menjadi DATETIME database (YYYY-MM-DD HH:MM:SS). */
+function norm_datetime(?string $v): ?string
+{
+    $v = trim((string)$v);
+    if ($v === '') return null;
+    $v = str_replace('T', ' ', $v);
+    if (strlen($v) === 16) $v .= ':00';
+    $ts = strtotime($v);
+    if ($ts === false) return null;
+    return date('Y-m-d H:i:s', $ts);
 }
 
 /** Inisial nama (maks 2 huruf). */
@@ -95,6 +107,7 @@ function status_badge(string $status): string
         'DISETUJUI_KADIV' => 'primary', 'DISETUJUI_DIREKTUR' => 'success', 'FINALISASI_KEUANGAN' => 'warning',
         'FINAL_KEUANGAN' => 'warning', 'DALAM_PROSES_PENGADAAN' => 'warning', 'MASUK_RENCANA_PENGADAAN' => 'warning',
         'BERITA_ACARA' => 'primary', 'TIDAK_TERSEDIA' => 'danger', 'DIPINJAM' => 'info', 'DIKEMBALIKAN' => 'success',
+        'DIBATALKAN' => 'dark',
     ];
     $cls = $map[strtoupper($status)] ?? 'secondary';
     return '<span class="badge badge-' . $cls . '">' . e($status) . '</span>';
@@ -168,6 +181,7 @@ function refresh_notification_cache(): void
         $n += count_rows("SELECT COUNT(*) FROM damage_reports WHERE status = 'DILAPORKAN'");
         $n += count_rows("SELECT COUNT(*) FROM procurement_plans WHERE status = 'DALAM_PROSES_PENGADAAN'");
         $n += count_rows("SELECT COUNT(*) FROM vehicles WHERE next_service_km > 0 AND last_km >= next_service_km - 1500 AND status <> 'SERVICE'");
+        $n += count_rows("SELECT COUNT(*) FROM room_bookings WHERE status = 'MENUNGGU'");
         $_SESSION['notif_count'] = $n;
     } catch (Throwable $e) { /* abaikan */ }
 }
@@ -182,6 +196,7 @@ function notification_badge_count()
     $n += count_rows("SELECT COUNT(*) FROM damage_reports WHERE status = 'DILAPORKAN'");
     $n += count_rows("SELECT COUNT(*) FROM receptions r WHERE r.status IN ('DITERIMA','DITERIMA SEBAGIAN') AND EXISTS (SELECT 1 FROM procurement_plan_items i WHERE i.plan_id = r.plan_id) AND r.status <> 'DITERIMA'");
     $n += count_rows("SELECT COUNT(*) FROM vehicles WHERE next_service_km > 0 AND last_km >= next_service_km - 1500");
+    $n += count_rows("SELECT COUNT(*) FROM room_bookings WHERE status = 'MENUNGGU'");
     $month = date('Y-m');
     $n += count_rows("SELECT COUNT(*) FROM stock_opnames WHERE DATE_FORMAT(opname_date,'%Y-%m') = ?", [$month]) === 0 ? 1 : 0;
     return $cached = $n;
@@ -199,6 +214,8 @@ function work_notifications(): array
     if ($v) $out[] = ['🚗', $v . ' Kendaraan mendekati jadwal servis', 'perawatan_kendaraan.php'];
     $v = count_rows("SELECT COUNT(*) FROM procurement_plans WHERE status = 'DALAM_PROSES_PENGADAAN'");
     if ($v) $out[] = ['📦', $v . ' Pengadaan belum diterima', 'penerimaan.php'];
+    $v = count_rows("SELECT COUNT(*) FROM room_bookings WHERE status = 'MENUNGGU'");
+    if ($v) $out[] = ['📅', $v . ' Pengajuan peminjaman ruang menunggu persetujuan', 'ruang_booking.php'];
     $month = date('Y-m');
     $done = count_rows("SELECT COUNT(*) FROM stock_opnames WHERE DATE_FORMAT(opname_date,'%Y-%m') = ?", [$month]);
     if (!$done) $out[] = ['🔍', 'Stock opname bulan ini belum dilakukan', 'stock_opname.php'];
